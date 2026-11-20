@@ -1,0 +1,7 @@
+# Horizontal-action data flywheel (search sessions -> query decompositions).
+session_gap_s: 1800          # consecutive queries of one user within 30 min form a session
+cluster_distance: 0.3        # query clustering (cosine distance) before 2-gram counting
+min_freq: 50                 # X: freq(A -> B) > X  => B is a sub-query of A
+once_per_session: true
+max_subs: 6
+judge: {base_url: http://judge:8000/v1, model: deepseek-v4-pro, min_score: 1.0}

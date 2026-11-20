@@ -1,0 +1,3 @@
+# Passed to VERL via actor_rollout_ref.rollout.agent.agent_loop_config_path
+- name: agentic_search
+  _target_: agentic_search.integrations.verl.agent_loop.AgenticSearchAgentLoop

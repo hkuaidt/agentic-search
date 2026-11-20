@@ -1,0 +1,56 @@
+# Single source of truth for the online runtime, RL rollout workers and evaluation.
+# Endpoints are placeholders -- point them at your own services.
+
+runtime:
+  max_tool_rounds: 2        # C-end latency budget: 1-2 ReAct rounds
+  max_calls_per_round: 8    # cap on one horizontal action
+  default_limit: 5
+  k_shots: 2                # dynamic few-shot examples per query
+
+policy:                     # used outside VERL (eval / data generation); VERL rolls out via its own server
+  base_url: http://policy-vllm:8000/v1
+  model: Qwen/Qwen3-30B-A3B
+
+tools:
+  tag_search:
+    url: http://search-backend:8080/tag_search
+    description: 在经过互动分准入、打标与人工复核的精选标签内容池中检索，优先服务高频、主题明确的需求。
+  community_search:
+    url: http://search-backend:8080/community_search
+    description: 检索全社区可搜索内容，用于长尾问题、新话题与具体信息补查。
+
+proxy:                      # training-dedicated search proxy
+  index_version: snapshot-2026-10-01   # pin for reproducible experiments
+  cache_ttl_s: null                    # null = never expire (valid only with a pinned snapshot)
+  queue_size: 4096
+  num_workers: 64
+  max_queue_wait_s: 30
+  limits:                              # set from downstream load tests and spare online capacity
+    tag_search:       {rate_per_s: 200, burst: 50, max_inflight: 64, timeout_s: 3.0, max_retries: 2, backoff_base_s: 0.2}
+    community_search: {rate_per_s: 100, burst: 30, max_inflight: 32, timeout_s: 3.0, max_retries: 2, backoff_base_s: 0.2}
+
+reward:
+  weights: {format: 0.1, query: 0.3, outcome: 0.6}   # same scale as the RaR rubric (F10 / Q30 / A60)
+  query_judge:      {base_url: http://judge:8000/v1, model: deepseek-v4-pro}
+  outcome_judges:   # one dimension per judge / reward model
+    safety:    {base_url: http://rm-safety:8000/v1,    model: rm-safety}
+    style:     {base_url: http://rm-style:8000/v1,     model: rm-style}
+    trust:     {base_url: http://rm-trust:8000/v1,     model: rm-trust}
+    coherence: {base_url: http://rm-coherence:8000/v1, model: rm-coherence}
+
+advantage:                  # A = A^E (GSPO) + omega * A^S (GiGPO) + lambda_opd * A^OPD
+  gamma: 0.9
+  omega: 1.0
+  lambda_opd: 0.5
+  opd_clip: 5.0
+  norm_by_std: true
+
+teacher:                    # OPD teacher, served separately; must share the student's tokenizer
+  base_url: http://teacher-vllm:8000/v1
+  model: Qwen/Qwen3-235B-A22B
+  max_workers: 64
+
+eval:
+  pass_threshold: 80
+  samples_per_query: 32
+  diagnosis_ks: [1, 8, 16]

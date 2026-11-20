@@ -1,0 +1,78 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentic-search"
+version = "0.1.0"
+description = "Tag-enhanced dual-supply Agentic Search for content communities: taxonomy + tagging, horizontal/vertical ReAct data, and GSPO + GiGPO + OPD agentic RL."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "agentic-search contributors" }]
+keywords = ["llm", "agentic-rl", "search-agent", "gspo", "gigpo", "on-policy-distillation", "luffy", "moe"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.13",
+  "torch>=2.4",
+  "jsonschema>=4.22",
+  "pyyaml>=6.0",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# GPU training / serving stack. Linux + CUDA only; versions follow the PROPOSAL §5.1 setup
+# (VERL + Megatron-Core + vLLM for RL, ms-swift Megatron-SWIFT for SFT).
+train = [
+  "verl>=0.6; sys_platform == 'linux'",
+  "ms-swift>=3.8; sys_platform == 'linux'",
+  "vllm>=0.10; sys_platform == 'linux'",
+]
+dev = [
+  "pytest>=8.2",
+  "pytest-asyncio>=0.24",
+  "ruff==0.17.6",  # keep in sync with .pre-commit-config.yaml
+  "mypy==2.4.1",
+  "pre-commit>=3.7",
+]
+
+[project.scripts]
+agentic-search = "agentic_search.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentic_search"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "PT"]
+ignore = [
+  "RUF001", "RUF002", "RUF003",  # full-width CJK punctuation is intentional in prompts/docs
+  "N803", "N806",                # math-style names (G, R, Q, A_S) mirror the papers' notation
+  "SIM108",
+  "B905",                        # zip() lengths are validated explicitly where it matters
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PT011", "PT018"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q"
+markers = [
+  "gpu: needs CUDA + the [train] extra (skipped on CPU CI)",
+]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
